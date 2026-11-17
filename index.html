@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人消费记录管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        danger: '#F53F3F',
+                        success: '#00B42A',
+                        warn: '#FF7D00'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <header class="mb-8">
+        <h1 class="text-2xl font-bold text-primary flex items-center gap-2">
+            <i class="fa fa-wallet"></i>个人消费记录管理
+        </h1>
+        <p class="text-gray-500 mt-1">服务器数据库存储，外网多人访问共享数据</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 bg-white rounded-xl shadow p-5">
+            <h2 class="text-lg font-semibold mb-4 border-b pb-2"><i class="fa fa-plus-circle text-primary"></i> 添加消费</h2>
+            <form id="expenseForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">消费日期</label>
+                    <input type="date" id="expDate" required class="w-full border border-gray-300 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">消费金额(元)</label>
+                    <input type="number" step="0.01" min="0.01" id="expMoney" placeholder="25.50" required class="w-full border border-gray-300 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">消费分类</label>
+                    <select id="expType" class="w-full border border-gray-300 rounded px-3 py-2">
+                        <option value="餐饮">🍜 餐饮美食</option>
+                        <option value="交通">🚗 交通出行</option>
+                        <option value="购物">🛒 购物消费</option>
+                        <option value="娱乐">🎮 休闲娱乐</option>
+                        <option value="居住">🏠 房租水电</option>
+                        <option value="医疗">💊 医疗健康</option>
+                        <option value="其他">📦 其他支出</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">备注说明</label>
+                    <textarea id="expRemark" rows="2" placeholder="简单描述消费内容" class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-lg">
+                    <i class="fa fa-check"></i> 保存记录
+                </button>
+            </form>
+        </div>
+
+        <div class="lg:col-span-2 bg-white rounded-xl shadow p-5">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h2 class="text-lg font-semibold"><i class="fa fa-bar-chart text-primary"></i> 消费统计</h2>
+                <div class="flex gap-2 items-center">
+                    <label class="text-sm text-gray-600">筛选月份：</label>
+                    <input type="month" id="filterMonth" class="border border-gray-300 rounded px-2 py-1.5">
+                    <button id="resetFilter" class="px-3 py-1.5 bg-gray-200 rounded text-sm hover:bg-gray-300">重置</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <div class="text-sm text-gray-500">筛选总支出</div>
+                    <div id="totalMoney" class="text-xl font-bold text-primary">¥0.00</div>
+                </div>
+                <div class="bg-orange-50 p-3 rounded-lg">
+                    <div class="text-sm text-gray-500">记录条数</div>
+                    <div id="totalCount" class="text-xl font-bold text-warn">0</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded-lg">
+                    <div class="text-sm text-gray-500">平均单笔</div>
+                    <div id="avgMoney" class="text-xl font-bold text-success">¥0.00</div>
+                </div>
+                <div class="bg-red-50 p-3 rounded-lg">
+                    <div class="text-sm text-gray-500">最高一笔</div>
+                    <div id="maxMoney" class="text-xl font-bold text-danger">¥0.00</div>
+                </div>
+            </div>
+            <div class="h-64">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-semibold mb-4"><i class="fa fa-list-ul text-primary"></i> 消费记录列表</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                <tr class="bg-gray-50 text-left">
+                    <th class="px-3 py-2">日期</th>
+                    <th class="px-3 py-2">分类</th>
+                    <th class="px-3 py-2">金额(元)</th>
+                    <th class="px-3 py-2">备注</th>
+                    <th class="px-3 py-2">操作</th>
+                </tr>
+                </thead>
+                <tbody id="tableBody">
+                <tr><td colspan="5" class="text-center py-6 text-gray-400">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let pieChart = null;
+const filterMonth = document.getElementById('filterMonth');
+
+//获取今日日期
+function getTodayStr(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+}
+document.getElementById('expDate').value = getTodayStr();
+
+//加载数据
+async function loadData(){
+    let url = 'api.php?action=list';
+    if(filterMonth.value){
+        url += '&month=' + filterMonth.value;
+    }
+    const res = await fetch(url);
+    const list = await res.json();
+    render(list);
+}
+
+//渲染页面
+function render(data){
+    const tb = document.getElementById('tableBody');
+    if(data.length === 0){
+        tb.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-gray-400">暂无消费记录</td></tr>`;
+        renderChart([]);
+        return;
+    }
+    let html = '';
+    data.forEach(item=>{
+        html += `
+        <tr class="border-b hover:bg-gray-50">
+            <td class="px-3 py-2">${item.expense_date}</td>
+            <td class="px-3 py-2">${item.category}</td>
+            <td class="px-3 py-2 text-danger font-medium">¥${Number(item.money).toFixed(2)}</td>
+            <td class="px-3 py-2 text-gray-600">${item.remark||"-"}</td>
+            <td class="px-3 py-2">
+                <button data-id="${item.id}" class="del-btn text-danger hover:underline text-sm">删除</button>
+            </td>
+        </tr>`;
+    })
+    tb.innerHTML = html;
+    renderChart(data);
+
+    //删除事件
+    document.querySelectorAll('.del-btn').forEach(btn=>{
+        btn.onclick = async function(){
+            const id = this.dataset.id;
+            if(!confirm("确定删除这条记录？")) return;
+            await fetch(`api.php?action=delete&id=${id}`);
+            loadData();
+        }
+    })
+}
+
+//统计和饼图
+function renderChart(data){
+    const totalMoneyDom = document.getElementById('totalMoney');
+    const totalCountDom = document.getElementById('totalCount');
+    const avgMoneyDom = document.getElementById('avgMoney');
+    const maxMoneyDom = document.getElementById('maxMoney');
+
+    let total = 0;
+    let max = 0;
+    const catMap = {};
+    data.forEach(i=>{
+        const m = Number(i.money);
+        total += m;
+        if(m>max) max=m;
+        if(!catMap[i.category]) catMap[i.category]=0;
+        catMap[i.category] += m;
+    })
+    const count = data.length;
+    const avg = count>0 ? total/count : 0;
+    totalMoneyDom.innerText = `¥${total.toFixed(2)}`;
+    totalCountDom.innerText = count;
+    avgMoneyDom.innerText = `¥${avg.toFixed(2)}`;
+    maxMoneyDom.innerText = `¥${max.toFixed(2)}`;
+
+    if(pieChart) pieChart.destroy();
+    const ctx = document.getElementById('pieChart').getContext('2d');
+    pieChart = new Chart(ctx,{
+        type:"pie",
+        data:{
+            labels:Object.keys(catMap),
+            datasets:[{data:Object.values(catMap),backgroundColor:['#165DFF','#F53F3F','#00B42A','#FF7D00','#722ED1','#0FC6C2','#86909C']}]
+        },
+        options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:"分类消费占比"},legend:{position:"bottom"}}}
+    })
+}
+
+//提交表单
+document.getElementById("expenseForm").onsubmit = async function(e){
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("action","add");
+    formData.append("expense_date",document.getElementById("expDate").value);
+    formData.append("money",document.getElementById("expMoney").value);
+    formData.append("category",document.getElementById("expType").value);
+    formData.append("remark",document.getElementById("expRemark").value);
+    await fetch("api.php",{method:"POST",body:formData});
+    this.reset();
+    document.getElementById('expDate').value = getTodayStr();
+    loadData();
+    alert("添加成功！");
+}
+
+filterMonth.onchange = loadData;
+document.getElementById("resetFilter").onclick = ()=>{filterMonth.value="";loadData();};
+
+window.onload = loadData;
+</script>
+</body>
+</html>
